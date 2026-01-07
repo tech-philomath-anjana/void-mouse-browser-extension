@@ -1,111 +1,144 @@
+"""Simple gesture-controlled mouse using MediaPipe landmarks.
+
+The gestures are intentionally minimal: one finger moves the cursor,
+a pinch clicks, and a thumb-only pose scrolls.
+"""
+
+from __future__ import annotations
+
+import time
+from dataclasses import dataclass
+from typing import Optional, Tuple
+
 import cv2
 import numpy as np
-import hand_tracker as htm
-import time
 import pyautogui
 
-# camera and tracking settings
+import hand_tracker as htm
+
+
 CAM_WIDTH, CAM_HEIGHT = 1280, 720
 SMOOTHING = 7
 CLICK_THRESHOLD = 50
 SCROLL_FRAME_DELAY = 3
 
-# state variables
-prev_time = 0
-prev_x, prev_y = 0, 0
-curr_x, curr_y = 0, 0
-click_cooldown = 0
-scroll_counter = 0
 
-# find available camera
-cap = None
-for i in range(2):
-    temp_cap = cv2.VideoCapture(i)
-    if temp_cap.isOpened():
-        cap = temp_cap
-        break
-    temp_cap.release()
+@dataclass
+class CursorState:
+    prev_x: float = 0
+    prev_y: float = 0
+    cooldown_frames: int = 0
+    scroll_counter: int = 0
+    fps_time: float = 0
 
-if cap is None:
-    raise Exception("no camera found")
 
-cap.set(3, CAM_WIDTH)
-cap.set(4, CAM_HEIGHT)
-detector = htm.handDetector(max_hands=1)
-screen_w, screen_h = pyautogui.size()
-pyautogui.FAILSAFE = False
+def find_camera(max_index: int = 1) -> cv2.VideoCapture:
+    """Return the first opened camera up to max_index (inclusive)."""
 
-while True:
-    success, img = cap.read()
-    img = detector.findHands(img)
-    landmarks, bbox = detector.findPosition(img)
+    for idx in range(max_index + 1):
+        capture = cv2.VideoCapture(idx)
+        if capture.isOpened():
+            return capture
+        capture.release()
+    raise RuntimeError("No camera found")
 
-    # get finger tip positions
-    if len(landmarks) != 0:
-        x1, y1 = landmarks[8][1:]  # index finger tip
-        x2, y2 = landmarks[12][1:]  # middle finger tip
 
-    fingers = detector.fingersUp()
+def draw_status(text: str, frame, color=(0, 255, 0)) -> None:
+    cv2.putText(frame, text, (50, 100), cv2.FONT_HERSHEY_PLAIN, 2, color, 3)
 
-    if click_cooldown > 0:
-        click_cooldown -= 1
 
-    # thumb only = scroll
-    if fingers[0] == 1 and fingers[1] == 0 and fingers[2] == 0 and fingers[3] == 0 and fingers[4] == 0:
-        thumb_tip_y = landmarks[4][2]
-        thumb_base_y = landmarks[2][2]
+def map_to_screen(x: float, y: float, screen_w: int, screen_h: int) -> Tuple[float, float]:
+    x_screen = np.interp(x, (50, CAM_WIDTH - 50), (0, screen_w))
+    y_screen = np.interp(y, (50, CAM_HEIGHT - 50), (0, screen_h))
+    return x_screen, y_screen
 
-        scroll_counter += 1
-        if scroll_counter >= SCROLL_FRAME_DELAY:
-            if thumb_tip_y < thumb_base_y:  # thumbs up
-                pyautogui.scroll(3)
-                cv2.putText(img, "SCROLL UP", (50, 100), cv2.FONT_HERSHEY_PLAIN, 2,
-                            (0, 255, 0), 3)
-            else:  # thumbs down
-                pyautogui.scroll(-3)
-                cv2.putText(img, "SCROLL DOWN", (50, 100), cv2.FONT_HERSHEY_PLAIN, 2,
-                            (0, 0, 255), 3)
-            scroll_counter = 0
-        click_cooldown = 10
 
-    # index + middle finger = click mode
-    elif fingers[1] == 1 and fingers[2] == 1:
-        scroll_counter = 0
-        length, img, line_info = detector.findDistance(8, 12, img)
+def handle_scroll(landmarks, state: CursorState) -> None:
+    thumb_tip_y = landmarks[4][2]
+    thumb_base_y = landmarks[2][2]
 
-        # pinch to click
-        if length < CLICK_THRESHOLD and click_cooldown == 0:
-            cv2.circle(img, (line_info[4], line_info[5]),
-                       15, (0, 255, 0), cv2.FILLED)
-            pyautogui.click()
-            click_cooldown = 15
-        else:
-            cv2.line(img, (line_info[0], line_info[1]), (line_info[2], line_info[3]),
-                    (255, 0, 255), 3)
+    state.scroll_counter += 1
+    if state.scroll_counter < SCROLL_FRAME_DELAY:
+        return
 
-    # index finger only = move cursor
-    elif fingers[1] == 1 and fingers[2] == 0:
-        scroll_counter = 0
-        click_cooldown = 0
+    direction = 3 if thumb_tip_y < thumb_base_y else -3
+    pyautogui.scroll(direction)
+    state.scroll_counter = 0
+    state.cooldown_frames = 10
 
-        # map camera coords to screen coords
-        x3 = np.interp(x1, (50, CAM_WIDTH - 50), (0, screen_w))
-        y3 = np.interp(y1, (50, CAM_HEIGHT - 50), (0, screen_h))
 
-        # smooth out movement
-        curr_x = prev_x + (x3 - prev_x) / SMOOTHING
-        curr_y = prev_y + (y3 - prev_y) / SMOOTHING
+def handle_click(detector, frame, state: CursorState) -> None:
+    length, frame, line_info = detector.findDistance(8, 12, frame)
+    if length < CLICK_THRESHOLD and state.cooldown_frames == 0:
+        cv2.circle(frame, (line_info[4], line_info[5]), 15, (0, 255, 0), cv2.FILLED)
+        pyautogui.click()
+        state.cooldown_frames = 15
+    else:
+        cv2.line(frame, (line_info[0], line_info[1]), (line_info[2], line_info[3]), (255, 0, 255), 3)
 
-        pyautogui.moveTo(screen_w - curr_x, curr_y)
-        cv2.circle(img, (x1, y1), 15, (255, 0, 255), cv2.FILLED)
-        prev_x, prev_y = curr_x, curr_y
 
-    # show fps
-    curr_time = time.time()
-    fps = 1 / (curr_time - prev_time)
-    prev_time = curr_time
-    cv2.putText(img, str(int(fps)), (20, 50), cv2.FONT_HERSHEY_PLAIN, 3,
-                (255, 0, 0), 3)
+def handle_move(landmarks, detector, screen_w: int, screen_h: int, state: CursorState, frame) -> None:
+    x1, y1 = landmarks[8][1:]
+    mapped_x, mapped_y = map_to_screen(x1, y1, screen_w, screen_h)
 
-    cv2.imshow("Image", img)
-    cv2.waitKey(1)
+    curr_x = state.prev_x + (mapped_x - state.prev_x) / SMOOTHING
+    curr_y = state.prev_y + (mapped_y - state.prev_y) / SMOOTHING
+
+    pyautogui.moveTo(screen_w - curr_x, curr_y)
+    cv2.circle(frame, (x1, y1), 15, (255, 0, 255), cv2.FILLED)
+    state.prev_x, state.prev_y = curr_x, curr_y
+
+
+def main() -> None:
+    cap = find_camera()
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAM_WIDTH)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAM_HEIGHT)
+
+    detector = htm.handDetector(max_hands=1)
+    screen_w, screen_h = pyautogui.size()
+    pyautogui.FAILSAFE = False
+
+    state = CursorState()
+
+    while True:
+        success, frame = cap.read()
+        if not success:
+            continue
+
+        frame = detector.findHands(frame)
+        landmarks, _ = detector.findPosition(frame)
+        fingers = detector.fingersUp()
+
+        if state.cooldown_frames > 0:
+            state.cooldown_frames -= 1
+
+        if landmarks:
+            # Thumb only → scroll
+            if fingers == [1, 0, 0, 0, 0]:
+                handle_scroll(landmarks, state)
+            # Index + middle → pinch click
+            elif fingers[1] == 1 and fingers[2] == 1:
+                state.scroll_counter = 0
+                handle_click(detector, frame, state)
+            # Index only → move cursor
+            elif fingers[1] == 1 and fingers[2] == 0:
+                state.scroll_counter = 0
+                state.cooldown_frames = 0
+                handle_move(landmarks, detector, screen_w, screen_h, state, frame)
+
+        # HUD: FPS
+        now = time.time()
+        fps = 1 / (now - state.fps_time) if state.fps_time else 0
+        state.fps_time = now
+        cv2.putText(frame, f"{int(fps)}", (20, 50), cv2.FONT_HERSHEY_PLAIN, 3, (255, 0, 0), 3)
+
+        cv2.imshow("Image", frame)
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+    cap.release()
+    cv2.destroyAllWindows()
+
+
+if __name__ == "__main__":
+    main()

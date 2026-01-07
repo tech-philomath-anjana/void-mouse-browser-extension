@@ -1,0 +1,55 @@
+/* Minimal UI styles for the Void Mouse overlay */
+#void-mouse-overlay {
+  position: fixed;
+  right: 12px;
+  bottom: 12px;
+  z-index: 2147483646;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+}
+
+#void-mouse-controls {
+  background: rgba(20,20,20,0.75);
+  color: #fff;
+  padding: 8px;
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.4);
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+#void-mouse-controls button {
+  background: #ff4081;
+  color: white;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+#vm-video, #vm-canvas {
+  position: fixed;
+  right: 12px;
+  bottom: 72px;
+  width: 240px;
+  height: 180px;
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.5);
+  z-index: 2147483646;
+}
+
+#vm-canvas {
+  pointer-events: none;
+}
+
+#vm-cursor {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(255, 64, 129, 0.95);
+  box-shadow: 0 0 6px rgba(255,64,129,0.8);
+}
+
+.vm-enabled #void-mouse-controls {
+  border: 1px solid rgba(255,255,255,0.06);
+}

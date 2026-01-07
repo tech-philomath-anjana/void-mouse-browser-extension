@@ -1,0 +1,39 @@
+{
+  "manifest_version": 3,
+  "name": "Void Mouse — Webcam Hands Pointer",
+  "version": "0.1",
+  "description": "Control the browser using hand gestures via webcam (pinch click, finger pointer, scroll).",
+  "permissions": ["activeTab", "scripting", "storage", "offscreen"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "host_permissions": ["<all_urls>"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": "icons/Void Mouse Logo.png"
+  },
+  "icons": {
+    "16": "icons/Void Mouse Logo.png",
+    "48": "icons/Void Mouse Logo.png",
+    "128": "icons/Void Mouse Logo.png",
+    "256": "icons/Void Mouse Logo.png"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content_script.js"],
+      "css": ["ui.css"],
+      "all_frames": true
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["mediapipe/*", "icons/*"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+  ,
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+  }
+}

@@ -1,0 +1,175 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Void Mouse</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f6f8fb;
+        --card: #ffffff;
+        --text: #0f172a;
+        --muted: #4b5563;
+        --accent: #2563eb;
+        --accent-2: #e5e7eb;
+        --shadow: 0 12px 28px rgba(0, 0, 0, 0.12);
+        --success: #16a34a;
+        --pill: #e5e7eb;
+        --pill-active: #2563eb1a;
+        --toggle-off: #cbd5e1;
+        --toggle-on: #2563eb;
+      }
+      * { box-sizing: border-box; }
+      body {
+        font-family: 'Inter', system-ui, -apple-system, Roboto, Arial;
+        width: 360px;
+        margin: 0;
+        padding: 16px;
+        background: radial-gradient(120% 120% at 20% 20%, rgba(255,255,255,0.05), transparent), var(--bg);
+        color: var(--text);
+      }
+      .card {
+        background: var(--card);
+        border-radius: 18px;
+        box-shadow: var(--shadow);
+        padding: 16px;
+      }
+      .header { text-align: center; margin-bottom: 12px; }
+      .title { font-size: 20px; font-weight: 800; margin: 4px 0 2px; }
+      .subtitle { font-size: 13px; color: var(--muted); margin: 0; }
+  .tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0; background: var(--pill); padding: 6px; border-radius: 14px; }
+  .tab { border: none; border-radius: 12px; padding: 10px; font-weight: 700; cursor: pointer; background: transparent; color: var(--muted); transition: background 120ms ease, color 120ms ease; }
+  .tab.active { background: var(--pill-active); color: var(--accent); box-shadow: 0 4px 12px rgba(0,0,0,0.18); }
+      .section { display: none; }
+      .section.active { display: block; }
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px; border-radius: 16px; background: var(--accent-2); margin: 10px 0; }
+  .row .label { font-weight: 700; display: block; margin-bottom: 3px; }
+      .row .hint { font-size: 12px; color: var(--muted); }
+  .toggle { width: 48px; height: 26px; border-radius: 999px; background: var(--toggle-off); border: none; position: relative; cursor: pointer; transition: background 140ms ease; }
+  .toggle::after { content: ''; position: absolute; width: 22px; height: 22px; border-radius: 50%; background: #fff; top: 2px; left: 2px; transition: transform 140ms ease, box-shadow 140ms ease; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+  .toggle.on { background: var(--toggle-on); }
+  .toggle.on::after { transform: translateX(22px); }
+  .slider-row { margin: 12px 0; padding: 14px; background: var(--accent-2); border-radius: 16px; }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  input[type=color] {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 2px solid rgba(0,0,0,0.12);
+    padding: 0;
+    background: transparent;
+    cursor: pointer;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+  }
+  input[type=color]::-webkit-color-swatch-wrapper { padding: 0; border-radius: 50%; }
+  input[type=color]::-webkit-color-swatch { border: none; border-radius: 50%; }
+      .status { display: flex; align-items: center; gap: 8px; font-weight: 700; }
+      .status .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--success); box-shadow: 0 0 0 4px rgba(16,185,129,0.15); }
+      .guide-list { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+      .guide-card { padding: 12px; border-radius: 12px; background: var(--accent-2); box-shadow: 0 4px 16px rgba(0,0,0,0.05); }
+      .guide-title { font-weight: 800; margin: 0 0 4px; }
+      .guide-sub { margin: 0; font-size: 13px; color: var(--muted); }
+      .tip { margin-top: 12px; padding: 10px; border-radius: 12px; background: rgba(59,130,246,0.08); color: #0f172a; font-size: 12px; }
+    .footer { margin-top: 10px; font-size: 12px; color: var(--muted); text-align: center; }
+  .footer.small { font-size: 10px; line-height: 1.2; white-space: nowrap; }
+      .actions { display: flex; gap: 10px; margin-top: 10px; }
+      .btn { border: none; border-radius: 10px; padding: 10px; font-weight: 700; cursor: pointer; background: var(--accent); color: #fff; flex: 1; }
+      .btn.secondary { background: var(--accent-2); color: var(--text); }
+  .theme-toggle { display: none; }
+    </style>
+  </head>
+  <body>
+    <div class="card" id="root">
+      <div class="header">
+        <div class="title">Void Mouse</div>
+      </div>
+
+      <div class="tabs">
+        <button class="tab active" data-tab="settings">⚙️ Settings</button>
+        <button class="tab" data-tab="guide">📖 Guide</button>
+      </div>
+
+      <div class="section active" id="settings">
+        <div class="status" id="status">
+          <span class="dot"></span>
+          <span>Status: <strong>Idle</strong></span>
+        </div>
+
+        <div class="row">
+          <div>
+            <div class="label">Gesture Control</div>
+            <div class="hint">Toggle the hand-controlled cursor on or off</div>
+          </div>
+          <button class="toggle" id="toggle" type="button" aria-pressed="false"></button>
+        </div>
+
+        <div class="slider-row">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+            <div>
+              <div class="label" style="font-weight: 800;">Pinch Threshold</div>
+              <div class="hint">Lower = easier pinch click (index + middle)</div>
+            </div>
+            <div id="threshold-value" style="font-weight:800;">0.05</div>
+          </div>
+          <input id="threshold" type="range" min="0.02" max="0.2" step="0.01" value="0.05" />
+        </div>
+
+        <div class="row">
+          <div>
+            <div class="label">Camera Preview</div>
+            <div class="hint">Show or hide the live camera tile</div>
+          </div>
+          <button class="toggle" id="preview-toggle" type="button" aria-pressed="false"></button>
+        </div>
+
+        <div class="row">
+          <div>
+            <div class="label">Cursor Color</div>
+            <div class="hint">Base glow color for the pointer</div>
+          </div>
+          <input type="color" id="cursor-color" value="#00c8ff" aria-label="Cursor color" />
+        </div>
+
+        <div class="row">
+          <div>
+            <div class="label">Click Color</div>
+            <div class="hint">Glow when a pinch click is active</div>
+          </div>
+          <input type="color" id="click-color" value="#ff5f5f" aria-label="Click color" />
+        </div>
+
+        <div class="row">
+          <div>
+            <div class="label">Camera Access</div>
+            <div class="hint" id="camera-status">Checking...</div>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button class="btn secondary" id="reset" type="button">Reset Settings</button>
+        </div>
+      </div>
+
+      <div class="section" id="guide">
+        <div class="guide-list">
+          <div class="guide-card">
+            <div class="guide-title">Move</div>
+            <p class="guide-sub">Point your index finger to move the pointer across the screen.</p>
+          </div>
+          <div class="guide-card">
+            <div class="guide-title">Click</div>
+            <p class="guide-sub">Pinch click to click.</p>
+          </div>
+          <div class="guide-card">
+            <div class="guide-title">Scroll</div>
+            <p class="guide-sub">Thumb scroll to scroll.</p>
+          </div>
+        </div>
+        <div class="tip">Tip: Keep your hand within the camera view for best results.</div>
+  <div class="footer small">Developed by M S Anjana • mahasathian.anjana@gmail.com</div>
+      </div>
+    </div>
+    <script src="popup.js"></script>
+  </body>
+</html>
